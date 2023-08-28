@@ -3,6 +3,7 @@ import {View, StyleSheet, TouchableOpacity} from 'react-native';
 import PropTypes from 'prop-types';
 import {AnySizeDragSortableView} from 'react-native-drag-sort-cr';
 import useRefMemo from './utils/useRefMemo';
+import _ from 'lodash';
 
 const styles = StyleSheet.create({
   groupContainer: {
@@ -83,6 +84,7 @@ class NestedDND extends React.PureComponent {
   constructor(props) {
     super(props);
     this.dragSortableRef = React.createRef();
+    this.moveHeader = React.createRef(false);
     this.state = {
       movingItem: null,
       mode: null,
@@ -144,13 +146,17 @@ class NestedDND extends React.PureComponent {
   handleDragEnd = () => {
     const {groups, updateGroups, groupToItemsKey, itemKeyExtractor} =
       this.props;
-    const {mode, tmpItemData} = this.state;
+      this.moveHeader.current = false;
+      const {mode, tmpItemData} = this.state;
+
     const nextGroups = [];
     tmpItemData.forEach(({data, isGroup}) => {
       if (isGroup) {
         nextGroups.push({...data, [groupToItemsKey]: []});
       } else {
-        nextGroups[nextGroups.length - 1][groupToItemsKey].push(data);
+        if(nextGroups?.length > 0){
+          nextGroups[nextGroups.length - 1][groupToItemsKey].push(data);
+        }
       }
     });
     if (mode === 'group') {
@@ -207,10 +213,13 @@ class NestedDND extends React.PureComponent {
     } else {
       children = renderItem(renderProps.data);
     }
+
     return (
+      renderProps.isGroup ?
       <TouchableOpacity
         onLongPress={() => {
           this.dragSortableRef.current.startTouch(renderProps, index);
+          this.moveHeader.current = true
         }}
         onPress={() => {
           const onPress = renderProps.isGroup
@@ -218,10 +227,36 @@ class NestedDND extends React.PureComponent {
             : onItemPress;
           onPress && onPress(renderProps.data);
         }}
-        onPressOut={() => this.dragSortableRef.current.onPressOut()}
+        onPressOut={() => {
+          // this.moveHeader.current = false
+          this.dragSortableRef.current.onPressOut()
+        }}
         {...renderProps.data.touchableProps}>
         {children}
       </TouchableOpacity>
+      : renderProps.data?.show ?
+      (
+
+      <TouchableOpacity
+        onLongPress={() => {
+          this.dragSortableRef.current.startTouch(renderProps, index);
+          this.moveHeader.current = false
+        }}
+        onPress={() => {
+          const onPress = onItemPress;
+          onPress && onPress(renderProps.data);
+        }}
+        onPressOut={() => {
+          this.moveHeader.current = false
+          this.dragSortableRef.current.onPressOut()
+        }}
+        {...renderProps.data.touchableProps}>
+          {
+             !this.moveHeader.current ? children : null
+          }
+        {/* {children} */}
+      </TouchableOpacity>)
+      : <View/>
     );
   };
 
